@@ -1,0 +1,263 @@
+openapi: 3.0.0
+info:
+  title: KLIK 
+  description: A web application fostering community engagement and alleviating loneliness among patient communities by creating support groups.
+  version: 0.0.0
+
+paths:
+  /supportGroup:
+    post: 
+      summary: Creates a new support group
+      operationId: createSupportGroup
+      description:  |
+        Creates a new support group based on given parameters.
+        Refrences 'Create Support Group' use case.
+
+        Pre Conditions: 
+          1. User is logged in and has authentication token 
+          2. User is authorized to create support groups
+
+        Post conditions:
+          1. A new support group is created and returned
+          2. Content moderators assigned
+          3. System logs creation and initial state of support group to ensure adutiability
+          4. A notification is sent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/SupportGroup"
+      responses:
+        "201":
+          description: "The support group was successfully created"
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: "#/components/schemas/SupportGroup"
+                  - $ref: "#/components/schemas/Status"
+        "400":
+          description: "The request was invalid, additional information found in response"
+          content:
+            application/json:
+                schema:
+                  type: object
+                  allOf:
+                    - $ref: "#/components/schemas/Status"
+                  example: {"StatusMessage": "Failed", message: "Missing field 'name'"}
+        401:
+          description: User is not authenticed
+        403:
+          description: User is not authorized to create groups
+        "500":
+          description: "A server side error occured while processing."
+          content:
+            application/json:
+                schema:
+                  type: object
+                  allOf:
+                    - $ref: "#/components/schemas/Status"
+                example: {"StatusMessage": "Failed", message: "An unknown error occurred try again later"}
+
+  /supportGroups/{groupId}/posts:
+    post:
+      summary: Create a new support group post
+      operationId: createSupportGroupPost
+      description: |
+        System Operation Contract: Create Support Group Post
+
+        Pre Conditions:
+          1. User is authenticated to the system
+          2. User is authorized to create a post in the support group
+
+        Post Conditions:
+          1. New post posted
+          2. Member of community receive notification
+          3. Added to content review backlog
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              allOf:
+                - $ref: '#/components/schemas/SupportGroupPost'
+      responses:
+        '201':
+          description: Post created and persisted to database
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/SupportGroupPost'
+                  - $ref: "#/components/schemas/Status"
+        "400":
+            description: "The request was invalid, additional information found in response"
+            content:
+              application/json:
+                  schema:
+                    type: object
+                    allOf:
+                      - $ref: "#/components/schemas/Status"
+                  example: {"StatusMessage": "Failed", message: "Missing field 'title'"}
+        401:
+            description: User is not authenticed
+        403:
+            description: User is not authorized to create groups
+        "500":
+            description: "A server side error occured while processing."
+            content:
+              application/json:
+                  schema:
+                    type: object
+                    allOf:
+                      - $ref: "#/components/schemas/Status"
+                    example: {"StatusMessage": "Failed", message: "An unknown error occurred try again later"}
+  /contentReports:
+    post:
+      summary: Report inappropriate content
+      operationId: reportInappropriateContent
+      description: |
+        System Operation Contract: Report Inappropriate Content
+        Pre Conditions:
+          1. Content moderator is assigned
+          2. All users are authorized and authenticated
+
+        Post Conditions:
+          1. Post removed
+          2. Posting user made read only
+          3. System logs event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+      responses:
+        201:
+          description: Report successfully created and persisted
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ContentReport'
+                  - $ref: "#/components/schemas/Status"
+        "400":
+            description: "The request was invalid, additional information found in response"
+            content:
+              application/json:
+                  schema:
+                    type: object
+                    allOf:
+                      - $ref: "#/components/schemas/Status"
+                  example: {"StatusMessage": "Failed", message: "Missing field 'description'"}
+        401:
+            description: User is not authenticed
+        403:
+            description: User is not authorized to create groups
+        "500":
+            description: "A server side error occured while processing."
+            content:
+              application/json:
+                  schema:
+                    type: object
+                    allOf:
+                      - $ref: "#/components/schemas/Status"
+                    example: {"StatusMessage": "Failed", message: "An unknown error occurred try again later"}
+components:
+  schemas:
+    SupportGroup:
+      type: object
+      required:
+        - name
+        - description
+        - focus
+      properties:
+        name:
+          type: string
+          example: "General Anxiety Support Group"
+          description: "The name of the support group, must be unique across the system"
+        description:
+          type: string
+          example: "Support for patients who suffer from anxiety related disorders"
+          description: "The description of the support group"
+        focus:
+          example: "anxiety"
+          type: string
+          description: "The focus of the support group"
+        moderatorIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        rules:
+          type: array
+          items: 
+            type: string
+    Status:
+      type: object
+      properties:
+        StatusMessage: 
+          type: string
+        status:
+          type: string
+          enum: [Created, Failed]
+    ContentReport:
+      type: object
+      required:
+        - postId
+        - severity
+        - description
+      properties:
+        id:
+          type: number
+          description: The id of the content report
+          example: 43243543
+        reportId: 
+          type: number
+          description: The id of the reported post
+          example: 34234343
+        severity:
+          type: string
+          enum: [Low, Medium, High]
+          description: "The relevative severity of the report"
+        description: 
+          type: string
+          description: "The explination of why the report is harmful"
+        reportStatus:
+          type: string
+          enum: [Pending, Reviewed, Actioned]
+          description: The status of the reports actions or pending status
+    SupportGroupPost:
+      type: object
+      required:
+        - title
+        - content
+        - groupId
+      properties:
+        id: 
+          type: number
+          description: The id of the post
+          example:  52334234 
+        groupId:
+          type: number
+          description: The id of the support group for the post
+          example: 2341234
+        title:
+          type: string
+          description: The title of the post 
+        content:
+          type: string
+          description: The post's content
+        
